@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invaders: Galaxy Quest</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Main Menu -->
+    <div id="mainMenu" class="menu-screen">
+        <div class="menu-container">
+            <h1 class="game-title">Space Invaders: Galaxy Quest</h1>
+            <div class="menu-buttons">
+                <button class="menu-btn" onclick="showGalaxySelect()">Play</button>
+                <button class="menu-btn" onclick="showShop()">Shop</button>
+                <button class="menu-btn" onclick="showSettings()">Settings</button>
+            </div>
+            <div class="currency-display">
+                <span>Kill Coins: <span id="killCoins">0</span></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Galaxy Selection -->
+    <div id="galaxySelect" class="menu-screen hidden">
+        <div class="menu-container">
+            <h2>Select Galaxy</h2>
+            <div class="galaxy-grid">
+                <div class="galaxy-card" onclick="startGalaxy('milkyway')">
+                    <div class="galaxy-icon">🌌</div>
+                    <h3>Milky Way</h3>
+                    <p>Classic space invaders</p>
+                    <div class="galaxy-status unlocked">Unlocked</div>
+                </div>
+                <div class="galaxy-card" onclick="startGalaxy('andromeda')">
+                    <div class="galaxy-icon">🌠</div>
+                    <h3>Andromeda</h3>
+                    <p>Fast enemies only</p>
+                    <div class="galaxy-status" id="andromedaStatus">Complete Milky Way</div>
+                </div>
+                <div class="galaxy-card" onclick="startGalaxy('orion')">
+                    <div class="galaxy-icon">⭐</div>
+                    <h3>Orion Nebula</h3>
+                    <p>Tough enemies only</p>
+                    <div class="galaxy-status" id="orionStatus">Complete Andromeda</div>
+                </div>
+                <div class="galaxy-card" onclick="startGalaxy('void')">
+                    <div class="galaxy-icon">🌑</div>
+                    <h3>The Void</h3>
+                    <p>Ultimate challenge</p>
+                    <div class="galaxy-status" id="voidStatus">Complete All Galaxies</div>
+                </div>
+            </div>
+            <button class="back-btn" onclick="showMainMenu()">Back</button>
+        </div>
+    </div>
+
+    <!-- Shop -->
+    <div id="shop" class="menu-screen hidden">
+        <div class="menu-container">
+            <h2>Upgrade Shop</h2>
+            <div class="currency-display">
+                <span>Kill Coins: <span id="shopCoins">0</span></span>
+            </div>
+            <div class="shop-items">
+                <div class="shop-item">
+                    <h3>Extra Life</h3>
+                    <p>Start with +1 life</p>
+                    <button class="buy-btn" onclick="buyUpgrade('extraLife')">100 Coins</button>
+                </div>
+                <div class="shop-item">
+                    <h3>Starting Shield</h3>
+                    <p>Begin with 50 shield</p>
+                    <button class="buy-btn" onclick="buyUpgrade('startingShield')">150 Coins</button>
+                </div>
+                <div class="shop-item">
+                    <h3>Rapid Fire Boost</h3>
+                    <p>Permanent +0.5 fire rate</p>
+                    <button class="buy-btn" onclick="buyUpgrade('rapidFireBoost')">200 Coins</button>
+                </div>
+                <div class="shop-item">
+                    <h3>Multi Shot</h3>
+                    <p>Start with +1 bullet</p>
+                    <button class="buy-btn" onclick="buyUpgrade('multiShot')">250 Coins</button>
+                </div>
+                <div class="shop-item">
+                    <h3>Laser Beam</h3>
+                    <p>Start with laser beam</p>
+                    <button class="buy-btn" onclick="buyUpgrade('laserBeam')">300 Coins</button>
+                </div>
+                <div class="shop-item">
+                    <h3>Double Score</h3>
+                    <p>Permanent 2x score</p>
+                    <button class="buy-btn" onclick="buyUpgrade('doubleScore')">500 Coins</button>
+                </div>
+            </div>
+            <button class="back-btn" onclick="showMainMenu()">Back</button>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="gameScreen" class="hidden">
+        <div class="container">
+            <div class="hud">
+                <div class="score">Score: <span id="score">0</span></div>
+                <div class="lives">Lives: <span id="lives">3</span></div>
+                <div class="wave">Wave: <span id="wave">1</span></div>
+                <div class="galaxy">Galaxy: <span id="currentGalaxy">Milky Way</span></div>
+                <div class="powerups" id="activePowerups">Powerups: None</div>
+            </div>
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+            <div class="message" id="message"></div>
+            <button class="pause-btn" onclick="togglePause()">Pause</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
