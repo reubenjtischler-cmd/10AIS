@@ -70,14 +70,14 @@ const galaxyConfigs = {
     }
 };
 
-// Shop Items
+// Shop Items - Temporary Powerups Only
 const shopItems = {
-    extraLife: { cost: 100, maxLevel: 5, description: 'Start with +1 life' },
-    startingShield: { cost: 150, maxLevel: 3, description: 'Begin with 50 shield' },
-    rapidFireBoost: { cost: 200, maxLevel: 3, description: 'Permanent +0.5 fire rate' },
-    multiShot: { cost: 250, maxLevel: 3, description: 'Start with +1 bullet' },
-    laserBeam: { cost: 300, maxLevel: 1, description: 'Start with laser beam' },
-    doubleScore: { cost: 500, maxLevel: 1, description: 'Permanent 2x score' }
+    healthPack: { cost: 50, duration: 0, description: 'Instant health restore' },
+    shieldPack: { cost: 75, duration: 0, description: 'Instant shield (50 points)' },
+    rapidFire: { cost: 100, duration: 300, description: 'Rapid fire for 5 seconds' },
+    multiShot: { cost: 150, duration: 400, description: 'Multi shot for 6.7 seconds' },
+    bombClear: { cost: 200, duration: 0, description: 'Clear all enemies on screen' },
+    timeSlow: { cost: 175, duration: 250, description: 'Slow time for 4.2 seconds' }
 };
 
 // Game state
@@ -158,6 +158,44 @@ function showShop() {
     updateShopDisplay();
 }
 
+function showSettings() {
+    hideAllScreens();
+    document.getElementById('settings').classList.remove('hidden');
+    currentScreen = 'settings';
+    loadSettingsToUI();
+}
+
+// Utility function to show temporary messages
+function showMessage(message) {
+    // Create message element if it doesn't exist
+    let messageElement = document.getElementById('tempMessage');
+    if (!messageElement) {
+        messageElement = document.createElement('div');
+        messageElement.id = 'tempMessage';
+        messageElement.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 10000;
+            font-size: 16px;
+        `;
+        document.body.appendChild(messageElement);
+    }
+    
+    messageElement.textContent = message;
+    messageElement.style.display = 'block';
+    
+    // Hide after 2 seconds
+    setTimeout(() => {
+        messageElement.style.display = 'none';
+    }, 2000);
+}
+
 // Settings Management
 let gameSettings = {
     soundEnabled: true,
@@ -174,13 +212,6 @@ const difficultyMultipliers = {
     hard: { health: 1.3, speed: 1.2, scoreMultiplier: 1.5 },
     insane: { health: 1.5, speed: 1.5, scoreMultiplier: 2.0 }
 };
-
-function showSettings() {
-    hideAllScreens();
-    document.getElementById('settings').classList.remove('hidden');
-    currentScreen = 'settings';
-    loadSettingsToUI();
-}
 
 function loadSettingsToUI() {
     document.getElementById('soundToggle').checked = gameSettings.soundEnabled;
@@ -289,7 +320,7 @@ function importSaveData() {
 
 function resetGameData() {
     if (confirm('Are you sure you want to reset all game data? This action cannot be undone!')) {
-        if (confirm('This will delete all your progress, upgrades, and settings. Are you absolutely sure?')) {
+        if (confirm('This will delete all your progress and settings. Are you absolutely sure?')) {
             localStorage.removeItem('spaceInvadersPlayerData');
             localStorage.removeItem('spaceInvadersSettings');
             
@@ -333,10 +364,15 @@ function hideAllScreens() {
     document.getElementById('deathMenu').classList.add('hidden');
     document.getElementById('gameScreen').classList.add('hidden');
 }
-
 function startGalaxy(galaxyId) {
+    console.log('startGalaxy called with:', galaxyId);
     const galaxy = galaxyConfigs[galaxyId];
-    if (!galaxy) return;
+    if (!galaxy) {
+        console.error('Galaxy not found:', galaxyId);
+        return;
+    }
+    
+    console.log('Galaxy config:', galaxy);
     
     // Check if galaxy is unlocked
     if (!isGalaxyUnlocked(galaxyId)) {
@@ -345,12 +381,18 @@ function startGalaxy(galaxyId) {
     }
     
     currentGalaxy = galaxyId;
+    console.log('Setting currentGalaxy to:', currentGalaxy);
+    
     hideAllScreens();
     document.getElementById('gameScreen').classList.remove('hidden');
     currentScreen = 'game';
     
+    console.log('Screen set to game, showing gameScreen');
+    
     // Initialize game with galaxy settings
     initGalaxyGame(galaxy);
+    
+    console.log('Galaxy game initialized');
 }
 
 function isGalaxyUnlocked(galaxyId) {
@@ -494,27 +536,17 @@ function updateShopDisplay() {
     // Create shop item elements
     itemIds.forEach(itemId => {
         const item = shopItems[itemId];
-        const currentLevel = playerData.permanentUpgrades[itemId] || 0;
         
         const shopItemDiv = document.createElement('div');
         shopItemDiv.className = 'shop-item';
         
-        let buttonText = 'Buy';
-        let buttonDisabled = false;
-        
-        if (currentLevel >= item.maxLevel) {
-            buttonText = 'Maxed';
-            buttonDisabled = true;
-        } else {
-            const cost = item.cost * (currentLevel + 1);
-            buttonText = `${cost} Coins`;
-            buttonDisabled = playerData.killCoins < cost;
-        }
+        const buttonText = `${item.cost} Coins`;
+        const buttonDisabled = playerData.killCoins < item.cost;
         
         shopItemDiv.innerHTML = `
             <h3>${itemId.charAt(0).toUpperCase() + itemId.slice(1).replace(/([A-Z])/g, ' $1')}</h3>
             <p>${item.description}</p>
-            <button class="buy-btn" onclick="buyUpgrade('${itemId}')" ${buttonDisabled ? 'disabled' : ''}>${buttonText}</button>
+            <button class="buy-btn" onclick="buyPowerup('${itemId}')" ${buttonDisabled ? 'disabled' : ''}>${buttonText}</button>
         `;
         
         shopItemsContainer.appendChild(shopItemDiv);
@@ -524,31 +556,64 @@ function updateShopDisplay() {
     setupShopPagination();
 }
 
-function buyUpgrade(itemId) {
+function buyPowerup(itemId) {
     const item = shopItems[itemId];
     if (!item) return;
     
-    const currentLevel = playerData.permanentUpgrades[itemId] || 0;
-    if (currentLevel >= item.maxLevel) {
-        alert('Already at max level!');
-        return;
-    }
-    
-    const cost = item.cost * (currentLevel + 1);
+    const cost = item.cost;
     if (playerData.killCoins < cost) {
         alert('Not enough coins!');
         return;
     }
     
-    // Purchase upgrade
+    // Purchase powerup
     playerData.killCoins -= cost;
-    playerData.permanentUpgrades[itemId] = currentLevel + 1;
-    
-    // Save data
     savePlayerData();
+    
+    // Apply powerup effect immediately
+    applyShopPowerup(itemId);
     
     // Refresh shop display
     updateShopDisplay();
+}
+
+function applyShopPowerup(itemId) {
+    switch(itemId) {
+        case 'healthPack':
+            if (gameState.lives < 5) {
+                gameState.lives++;
+                showMessage('Health restored!');
+            } else {
+                playerData.killCoins += 50; // Refund if at max health
+                showMessage('Already at max health!');
+            }
+            break;
+        case 'shieldPack':
+            player.shield = Math.min(player.shield + 50, 100);
+            player.shieldMax = 100;
+            showMessage('Shield restored!');
+            break;
+        case 'rapidFire':
+            activateTemporaryPowerup('rapidFire', item.duration);
+            showMessage('Rapid fire activated!');
+            break;
+        case 'multiShot':
+            activateTemporaryPowerup('multiShot', item.duration);
+            showMessage('Multi shot activated!');
+            break;
+        case 'bombClear':
+            activateBombClear();
+            showMessage('Screen cleared!');
+            break;
+        case 'timeSlow':
+            activateTemporaryPowerup('timeSlow', item.duration);
+            showMessage('Time slow activated!');
+            break;
+    }
+}
+
+function activateTemporaryPowerup(type, duration) {
+    gameState.activePowerups[type] = duration;
 }
 
 // Save/Load System
@@ -565,6 +630,8 @@ function loadPlayerData() {
 
 // Initialize game with galaxy settings
 function initGalaxyGame(galaxy) {
+    console.log('initGalaxyGame called with:', galaxy);
+    
     // Reset game state
     gameState = {
         score: 0,
@@ -583,6 +650,8 @@ function initGalaxyGame(galaxy) {
         activePowerups: {}
     };
     
+    console.log('Game state reset:', gameState);
+    
     // Apply permanent upgrades
     player.shield = playerData.permanentUpgrades.startingShield * 50;
     player.shieldMax = player.shield;
@@ -591,28 +660,59 @@ function initGalaxyGame(galaxy) {
     player.laserBeam = playerData.permanentUpgrades.laserBeam || false;
     player.doubleScore = playerData.permanentUpgrades.doubleScore || false;
     
+    // Reset stacking and temporary upgrades
+    player.fireRateStack = 0;
+    player.bulletCountStack = 0;
+    player.superShipType = null;
+    player.superShipTimer = 0;
+    player.transformationEffect = 0;
+    player.piercingShots = false;
+    player.explosiveRounds = false;
+    player.magnetActive = false;
+    player.speedBoost = false;
+    player.giantLaser = false;
+    player.chainLightning = false;
+    player.homingMissiles = false;
+    player.timeSlowActive = false;
+    player.bombClear = false;
+    player.immunity = 0;
+    player.immunityMax = 0;
+    player.shootCooldown = 0;
+    
     // Reset player position
     player.x = GAME_WIDTH / 2 - PLAYER_WIDTH / 2;
     player.y = GAME_HEIGHT - 80;
+    
+    console.log('Player position set to:', player.x, player.y);
     
     // Update HUD
     document.getElementById('currentGalaxy').textContent = galaxy.name;
     
     // Start first wave
+    console.log('Calling spawnGalaxyWave...');
     spawnGalaxyWave();
+    console.log('Enemies after spawn:', gameState.enemies.length);
 }
 
 function spawnGalaxyWave() {
+    console.log('spawnGalaxyWave called, currentGalaxy:', currentGalaxy);
     const galaxy = galaxyConfigs[currentGalaxy];
+    console.log('Galaxy config:', galaxy);
     const baseEnemyCount = 3 + Math.floor(gameState.wave * 1.2);
     const enemyCount = Math.min(baseEnemyCount, 15);
     const spacing = GAME_WIDTH / (enemyCount + 1);
     
+    console.log('Spawning', enemyCount, 'enemies');
+    
     for (let i = 0; i < enemyCount; i++) {
         const enemyType = galaxy.enemyTypes[Math.floor(Math.random() * galaxy.enemyTypes.length)];
         const xOffset = (Math.random() - 0.5) * 30;
-        gameState.enemies.push(new Enemy(spacing * (i + 1) + xOffset, -50, enemyType));
+        const enemy = new Enemy(spacing * (i + 1) + xOffset, -50, enemyType);
+        console.log('Created enemy:', enemy);
+        gameState.enemies.push(enemy);
     }
+    
+    console.log('Total enemies after spawn:', gameState.enemies.length);
 }
 
 // Keyboard controls
@@ -1207,14 +1307,29 @@ function drawNovaShip() {
     // Central core
     ctx.fillStyle = '#ffff00';
     ctx.beginPath();
-    ctx.arc(player.x + player.width / 2, player.y + player.height / 2, 6, 0, Math.PI * 2);
+    ctx.arc(player.x + player.width / 2, player.y + player.height / 2, 5, 0, Math.PI * 2);
     ctx.fill();
 }
 
-// Enhanced shoot function with new weapon types
 function shoot() {
     player.shootCooldown--;
     if (player.shootCooldown <= 0) {
+        // Apply temporary powerup effects
+        let currentBulletCount = player.bulletCount;
+        let currentFireRate = player.fireRate;
+        
+        // Check for active temporary powerups
+        if (gameState.activePowerups.rapidFire > 0) {
+            currentFireRate = 0.3; // Much faster fire rate
+        }
+        
+        if (gameState.activePowerups.multiShot > 0) {
+            currentBulletCount = 4; // Quad shot
+        }
+        
+        // Set cooldown based on current fire rate
+        player.shootCooldown = Math.floor(5 / currentFireRate);
+        
         // Laser beam weapon (now works with regular bullets)
         if (player.laserBeam || player.giantLaser) {
             const laserWidth = player.giantLaser ? 40 : 20;
@@ -1241,72 +1356,20 @@ function shoot() {
                     const damage = player.giantLaser ? 2 : 0.5;
                     enemy.health -= damage;
                     
-                    // Chain lightning effect
-                    if (player.chainLightning && enemy.health <= 0) {
-                        // Create chain lightning to nearby enemies
-                        for (let otherEnemy of gameState.enemies) {
-                            if (otherEnemy !== enemy) {
-                                const distance = Math.sqrt(
-                                    Math.pow(otherEnemy.x + otherEnemy.width / 2 - (enemy.x + enemy.width / 2), 2) +
-                                    Math.pow(otherEnemy.y + otherEnemy.height / 2 - (enemy.y + enemy.height / 2), 2)
-                                );
-                                if (distance < 150) {
-                                    otherEnemy.health -= 1;
-                                    // Create lightning effect
-                                    for (let j = 0; j < 5; j++) {
-                                        const t = j / 5;
-                                        const lx = enemy.x + enemy.width / 2 + (otherEnemy.x + otherEnemy.width / 2 - enemy.x - enemy.width / 2) * t;
-                                        const ly = enemy.y + enemy.height / 2 + (otherEnemy.y + otherEnemy.height / 2 - enemy.y - enemy.height / 2) * t;
-                                        const particle = new Particle(
-                                            lx, ly,
-                                            (Math.random() - 0.5) * 2,
-                                            (Math.random() - 0.5) * 2,
-                                            'rgb(148, 0, 211)',
-                                            2,
-                                            5
-                                        );
-                                        gameState.particles.push(particle);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
                     if (enemy.health <= 0) {
-                        gameState.score += enemy.type === 'tough' ? 50 : enemy.type === 'fast' ? 30 : 10;
-                        if (player.doubleScore) gameState.score *= 2;
+                        let points = enemy.type === 'tough' ? 50 : enemy.type === 'fast' ? 30 : 10;
+                        if (player.doubleScore) points *= 2;
+                        gameState.score += points;
+                        
+                        // Add kill coins and save progress
+                        playerData.totalKills++;
+                        playerData.killCoins += Math.floor(points / 10);
+                        savePlayerData();
+                        
                         createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
                         gameState.enemies.splice(i, 1);
                         
-                        // Explosive rounds create secondary explosions
-                        if (player.explosiveRounds) {
-                            for (let j = 0; j < 5; j++) {
-                                const particle = new Particle(
-                                    enemy.x + enemy.width / 2,
-                                    enemy.y + enemy.height / 2,
-                                    (Math.random() - 0.5) * 8,
-                                    (Math.random() - 0.5) * 8,
-                                    'rgb(255, 100, 0)',
-                                    Math.random() * 4 + 2,
-                                    20
-                                );
-                                gameState.particles.push(particle);
-                            }
-                            // Damage nearby enemies
-                            for (let otherEnemy of gameState.enemies) {
-                                if (otherEnemy !== enemy) {
-                                    const distance = Math.sqrt(
-                                        Math.pow(otherEnemy.x + otherEnemy.width / 2 - (enemy.x + enemy.width / 2), 2) +
-                                        Math.pow(otherEnemy.y + otherEnemy.height / 2 - (enemy.y + enemy.height / 2), 2)
-                                    );
-                                    if (distance < 100) {
-                                        otherEnemy.health -= 1;
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Random powerup drop - reduced from 18% to 10%
+                        // Random powerup drop
                         if (Math.random() < 0.10) {
                             dropPowerup(enemy.x + enemy.width / 2, enemy.y);
                         }
@@ -1315,8 +1378,8 @@ function shoot() {
             }
         }
         
-        // Regular weapons (now shoot alongside laser beam)
-        if (player.bulletCount === 2) {
+        // Regular weapons with temporary powerup effects
+        if (currentBulletCount === 2) {
             // Dual shot
             const bullet1 = new Bullet(
                 player.x + player.width * 0.3,
@@ -1333,7 +1396,7 @@ function shoot() {
                 true
             );
             gameState.playerBullets.push(bullet1, bullet2);
-        } else if (player.bulletCount === 3) {
+        } else if (currentBulletCount === 3) {
             // Triple shot
             const bullet1 = new Bullet(
                 player.x + player.width * 0.5,
@@ -1357,9 +1420,40 @@ function shoot() {
                 true
             );
             gameState.playerBullets.push(bullet1, bullet2, bullet3);
-        } else if (player.bulletCount >= 5) {
+        } else if (currentBulletCount === 4) {
+            // Quad shot (from temporary powerup)
+            const bullet1 = new Bullet(
+                player.x + player.width * 0.25,
+                player.y,
+                0,
+                -BULLET_SPEED,
+                true
+            );
+            const bullet2 = new Bullet(
+                player.x + player.width * 0.75,
+                player.y,
+                0,
+                -BULLET_SPEED,
+                true
+            );
+            const bullet3 = new Bullet(
+                player.x + player.width * 0.1,
+                player.y,
+                -1.5,
+                -BULLET_SPEED,
+                true
+            );
+            const bullet4 = new Bullet(
+                player.x + player.width * 0.9,
+                player.y,
+                1.5,
+                -BULLET_SPEED,
+                true
+            );
+            gameState.playerBullets.push(bullet1, bullet2, bullet3, bullet4);
+        } else if (currentBulletCount >= 5) {
             // Five shot spread or more
-            const bulletCount = Math.min(player.bulletCount, 10); // Cap at 10 for performance
+            const bulletCount = Math.min(currentBulletCount, 10);
             for (let i = 0; i < bulletCount; i++) {
                 const angle = (i - (bulletCount - 1) / 2) * 0.3;
                 const bullet = new Bullet(
@@ -1372,28 +1466,6 @@ function shoot() {
                 gameState.playerBullets.push(bullet);
             }
         }
-        
-        // Homing missiles (shoot alongside regular bullets)
-        if (player.homingMissiles) {
-            const nearestEnemy = findNearestEnemy();
-            if (nearestEnemy) {
-                const angle = Math.atan2(
-                    nearestEnemy.y + nearestEnemy.height / 2 - player.y,
-                    nearestEnemy.x + nearestEnemy.width / 2 - player.x
-                );
-                const missile = new Bullet(
-                    player.x + player.width / 2,
-                    player.y,
-                    Math.cos(angle) * 4,
-                    Math.sin(angle) * 4,
-                    true
-                );
-                missile.isHoming = true;
-                gameState.playerBullets.push(missile);
-            }
-        }
-        
-        player.shootCooldown = player.shootRate / player.fireRate;
     }
 }
 
@@ -1574,10 +1646,20 @@ function activateBombClear() {
     // Clear all enemies on screen
     for (let i = gameState.enemies.length - 1; i >= 0; i--) {
         const enemy = gameState.enemies[i];
-        gameState.score += enemy.type === 'tough' ? 50 : enemy.type === 'fast' ? 30 : 10;
+        let points = enemy.type === 'tough' ? 50 : enemy.type === 'fast' ? 30 : 10;
+        if (player.doubleScore) points *= 2;
+        gameState.score += points;
+        
+        // Add kill coins and save progress
+        playerData.totalKills++;
+        playerData.killCoins += Math.floor(points / 10);
+        
         createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
         gameState.enemies.splice(i, 1);
     }
+    
+    // Save progress after bomb clear
+    savePlayerData();
     
     // Create screen flash effect
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
@@ -1679,6 +1761,7 @@ function checkCollisions() {
                     // Add kill coins
                     playerData.totalKills++;
                     playerData.killCoins += Math.floor(points / 10);
+                    savePlayerData();
                     
                     createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
                     gameState.enemies.splice(i, 1);
@@ -1815,6 +1898,17 @@ function checkCollisions() {
 // Update game
 function update() {
     if (gameState.gameOver || gameState.gameWon) return;
+    checkCollisions();
+    
+    // Update temporary powerup durations
+    for (let powerupType in gameState.activePowerups) {
+        if (gameState.activePowerups[powerupType] > 0) {
+            gameState.activePowerups[powerupType]--;
+            if (gameState.activePowerups[powerupType] === 0) {
+                showMessage(`${powerupType} expired!`);
+            }
+        }
+    }
     
     updatePlayer();
     
@@ -1924,6 +2018,9 @@ function update() {
         gameState.waveTransition = true;
         gameState.waveTransitionTimer = 60; // 1 second delay
         
+        // Save progress when wave is completed
+        savePlayerData();
+        
         // Show wave complete message
         showWaveComplete();
     }
@@ -1941,8 +2038,10 @@ function update() {
 
 // Draw game
 function draw() {
-    // Clear canvas
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    console.log('Draw function called, currentScreen:', currentScreen, 'enemies:', gameState.enemies.length);
+    
+    // Clear canvas completely
+    ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
     
     // Draw stars
@@ -1950,9 +2049,11 @@ function draw() {
     
     // Draw game objects
     drawPlayer();
+    console.log('Drawing player at:', player.x, player.y);
     
     for (let enemy of gameState.enemies) {
         enemy.draw();
+        console.log('Drawing enemy at:', enemy.x, enemy.y);
     }
     
     for (let bullet of gameState.playerBullets) {
@@ -2000,6 +2101,15 @@ function draw() {
     if (player.superShipType) {
         const timeLeft = Math.ceil(player.superShipTimer / 60);
         activePowerupNames.push(`SUPER ${player.superShipType.toUpperCase()} (${timeLeft}s)`);
+    }
+    
+    // Add temporary powerup status from shop
+    for (let powerupType in gameState.activePowerups) {
+        if (gameState.activePowerups[powerupType] > 0) {
+            const timeLeft = Math.ceil(gameState.activePowerups[powerupType] / 60);
+            const displayName = powerupType.charAt(0).toUpperCase() + powerupType.slice(1).replace(/([A-Z])/g, ' $1');
+            activePowerupNames.push(`${displayName} (${timeLeft}s)`);
+        }
     }
     
     // Show permanent powerup status
@@ -2119,6 +2229,7 @@ function spawnWave() {
 }
 
 // Initialize
+console.log('Script loaded successfully!');
 loadPlayerData();
 showMainMenu();
 initStars();
